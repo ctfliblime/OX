@@ -4,6 +4,7 @@ use warnings;
 use Test::More;
 use Test::Path::Router;
 use Plack::Test;
+use utf8;
 
 use Plack::App::Path::Router::PSGI;
 
@@ -40,6 +41,16 @@ use Plack::App::Path::Router::PSGI;
                 return [200, [], ["got $num"]];
             }
         ));
+        $router->add_route('/str/:string' => (
+            validations => {
+                string => 'Str',
+            },
+            target => sub {
+                my $env = shift;
+                my ($str) = @{ $env->{'plack.router.match.args'} };
+                return [200, [], ["got $str"]];
+            }
+        ));
     }
 }
 
@@ -51,12 +62,16 @@ path_ok($router, $_, '... ' . $_ . ' is a valid path')
         /
         /10
         /246
+        /str/foobar
+        /str/יאדנאמאד
     ];
 
 routes_ok($router, {
     ''    => {},
     '10'  => { number => 10  },
     '246' => { number => 246 },
+    'str/foobar'  => { string => 'foobar'  },
+    'str/יאדנאמאד' => { string => 'יאדנאמאד' },
 },
 "... our routes are valid");
 
@@ -78,6 +93,16 @@ test_psgi
             my $req = HTTP::Request->new(GET => "http://localhost/246");
             my $res = $cb->($req);
             is($res->content, 'got 246', "right content for /246");
+        }
+        {
+            my $req = HTTP::Request->new(GET => "http://localhost/str/foobar");
+            my $res = $cb->($req);
+            is($res->content, 'got foobar', "right content for /str/foobar");
+        }
+        {
+            my $req = HTTP::Request->new(GET => "http://localhost/str/יאדנאמאד");
+            my $res = $cb->($req);
+            is($res->content, 'got יאדנאמאד', "right content for /str/יאדנאמאד");
         }
     };
 
